@@ -7,8 +7,6 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-
-	"github.com/go-resty/resty/v2"
 )
 
 var config *Config
@@ -26,9 +24,7 @@ type User struct {
 }
 type Config struct {
 	Twitter struct {
-		Key        string `json:"API_Key"`
-		Key_secret string `json:"API_Key_Secret"`
-		Bearer     string `json:"Bearer_Token"`
+		Bearer string `json:"Bearer_Token"`
 	} `json:"twitter"`
 }
 
@@ -42,7 +38,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	client := resty.New()
+	/*client := resty.New()
 	resp, err := client.R().
 		SetHeader("Authorization", "Bearer "+config.Twitter.Bearer).
 		Get(TWITTER_API_BASE + "/2/users/by/username/Overpowered")
@@ -51,7 +47,7 @@ func main() {
 	}
 	var OP User
 	json.Unmarshal(resp.Body(), &OP)
-	fmt.Println(OP.Data.ID)
+	fmt.Println(OP.Data.ID)*/
 
 }
 func ParseFlags() (string, error) {
