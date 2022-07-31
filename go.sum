@@ -1,3 +1,5 @@
+github.com/g8rswimmer/go-twitter/v2 v2.1.2 h1:n5vwjp2l/9/TdJSkVoENmD3xErHiK/cNi0BBSs597rA=
+github.com/g8rswimmer/go-twitter/v2 v2.1.2/go.mod h1:/55xWb313KQs25X7oZrNSEwLQNkYHhPsDwFstc45vhc=
 github.com/go-resty/resty/v2 v2.7.0 h1:me+K9p3uhSmXtrBZ4k9jcEAfJmuC8IivWHwaLZwPrFY=
 github.com/go-resty/resty/v2 v2.7.0/go.mod h1:9PWDzw47qPphMRFfhsyk0NnSgvluHcljSMVIq3w7q0I=
 golang.org/x/net v0.0.0-20211029224645-99673261e6eb h1:pirldcYWx7rx7kE5r+9WsOXPXK0+WH5+uZ7uPmJ44uM=

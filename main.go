@@ -1,16 +1,20 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"reflect"
 	"regexp"
+	"strings"
+	"time"
 
-	"github.com/go-resty/resty/v2"
+	twitter "github.com/g8rswimmer/go-twitter/v2"
 )
 
 var config *Config
@@ -40,6 +44,9 @@ type Following struct {
 		NextToken string `json:"next_token"`
 	} `json:"meta"`
 }
+type authorize struct {
+	Token string
+}
 
 func main() {
 	configPath, err := ParseFlags()
@@ -50,44 +57,59 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	Person := UserSearch()
-	for Person.IsEmpty() {
-		fmt.Printf("User was not found\n\n")
-		Person = UserSearch()
+	client := &twitter.Client{
+		Authorizer: authorize{
+			Token: config.Twitter.Bearer,
+		},
+		Client: http.DefaultClient,
+		Host:   "https://api.twitter.com",
 	}
-	client := resty.New()
-	resp, err := client.R().
-		SetHeader("Authorization", "Bearer "+config.Twitter.Bearer).
-		Get(TWITTER_API_BASE + "/2/users/" + Person.Data.ID + "/following?user.fields=description")
-	var following Following
-	json.Unmarshal(resp.Body(), &following)
-	fmt.Println(following.Data[3].Bio)
-	//fmt.Println(string(resp.Body()))
-	fmt.Println(following.Meta)
+
+	person := UserSearch(client)
+	for len(person) == 0 {
+		fmt.Printf("User not found\n\n")
+		person = UserSearch(client)
+	}
+	fmt.Println(person)
+}
+func UsernameLookup(ctx context.Context, username string, client *twitter.Client) (*twitter.UserLookupResponse, error) {
+
+	opts := twitter.UserLookupOpts{}
+	userResponse, err := client.UserNameLookup(context.Background(), strings.Split(username, ","), opts)
+
+	if rateLimit, has := twitter.RateLimitFromError(err); has && rateLimit.Remaining == 0 {
+		time.Sleep(time.Until(rateLimit.Reset.Time()))
+		return client.UserNameLookup(context.Background(), strings.Split(username, ","), opts)
+	}
+	return userResponse, err
+}
+
+// change max result to 1000
+// implement paragration
+// 18+, NSWF, OF(case sensitive), Onlyfans
+func (a authorize) Add(req *http.Request) {
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", a.Token))
 }
 func (m User) IsEmpty() bool {
 	return reflect.DeepEqual(User{}, m)
 }
-func UserSearch() User {
+func UserSearch(c *twitter.Client) []*twitter.UserObj {
 	var Person string
 	fmt.Printf("Enter the username of the person you're searching (must be 1 word): ")
-	fmt.Scan(&Person)
+	fmt.Scan(&Person) // THIS THING IS TAKING MULTIPLE ARGUMENTS, AND IF THE FIRST ONE DOESNT COMPILE, IT WILL TAKE THE ONE AFTER. EXAMPLE: ";L;L;LJ Zeerocious", it will error out but still use Zeerocious
 	for !regexp.MustCompile(`^[a-zA-Z]*$`).MatchString(Person) {
 
 		fmt.Printf("username entered incorrectly, try again: ")
 		fmt.Scan(&Person)
 	}
 	fmt.Println("Searching up " + Person)
-	client := resty.New()
-	resp, err := client.R().
-		SetHeader("Authorization", "Bearer "+config.Twitter.Bearer).
-		Get(TWITTER_API_BASE + "/2/users/by/username/" + Person)
+	var ctx context.Context
+	resp, err := UsernameLookup(ctx, Person, c)
 	if err != nil {
-		fmt.Println(err)
+		return []*twitter.UserObj{}
 	}
-	var PersonInfo User
-	json.Unmarshal(resp.Body(), &PersonInfo)
-	return PersonInfo
+
+	return resp.Raw.Users
 }
 func ParseFlags() (string, error) {
 	var configPath string
