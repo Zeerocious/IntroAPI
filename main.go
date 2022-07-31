@@ -69,47 +69,94 @@ func main() {
 	for len(person) == 0 {
 		fmt.Printf("User not found\n\n")
 		person = UserSearch(client)
+
 	}
-	fmt.Println(person)
+	fmt.Println(person[0])
+	var ctx context.Context
+	var nextToken string
+	following, err := FollowingLookup(ctx, person[0].ID, client, nextToken)
+	if err != nil {
+		log.Panicf("user following lookup error: %v", err)
+	}
+	println(len(following))
+	//for i := 0; i < len(following); i++ {
+	//fmt.Printf("Username: " + following[i].UserName + "\t Bio:\t" + following[i].Description + "\n\n")
+	//}
 }
-func UsernameLookup(ctx context.Context, username string, client *twitter.Client) (*twitter.UserLookupResponse, error) {
+func UsernameLookup(ctx context.Context, username string, client *twitter.Client) ([]*twitter.UserObj, error) {
 
 	opts := twitter.UserLookupOpts{}
 	userResponse, err := client.UserNameLookup(context.Background(), strings.Split(username, ","), opts)
 
 	if rateLimit, has := twitter.RateLimitFromError(err); has && rateLimit.Remaining == 0 {
 		time.Sleep(time.Until(rateLimit.Reset.Time()))
-		return client.UserNameLookup(context.Background(), strings.Split(username, ","), opts)
+		userResponse, err = client.UserNameLookup(context.Background(), strings.Split(username, ","), opts)
+		return userResponse.Raw.Users, err
 	}
-	return userResponse, err
+	return userResponse.Raw.Users, err
+}
+func FollowingLookup(ctx context.Context, id string, client *twitter.Client, nextToken string) ([]*twitter.UserObj, error) {
+
+	opts := twitter.UserFollowingLookupOpts{
+		UserFields:      []twitter.UserField{twitter.UserFieldDescription},
+		PaginationToken: nextToken,
+	}
+
+	userResponse, err := client.UserFollowingLookup(context.Background(), id, opts)
+
+	if rateLimit, has := twitter.RateLimitFromError(err); has && rateLimit.Remaining == 0 {
+		time.Sleep(time.Until(rateLimit.Reset.Time()))
+		userResponse, err = client.UserFollowingLookup(context.Background(), id, opts)
+		return userResponse.Raw.Users, err
+	}
+	if userResponse.Meta.NextToken != "" {
+		rec, rec_err := FollowingLookup(ctx, id, client, userResponse.Meta.NextToken)
+		if rec_err != nil {
+			return []*twitter.UserObj{}, err
+		}
+		userResponse.Raw.Users = append(userResponse.Raw.Users, rec...)
+		return userResponse.Raw.Users, err
+	}
+	return userResponse.Raw.Users, err
 }
 
-// change max result to 1000
-// implement paragration
-// 18+, NSWF, OF(case sensitive), Onlyfans
+// 18+, NSWF, OF(case sensitive), Onlyfans, 18+ emoji
 func (a authorize) Add(req *http.Request) {
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", a.Token))
 }
 func (m User) IsEmpty() bool {
 	return reflect.DeepEqual(User{}, m)
 }
-func UserSearch(c *twitter.Client) []*twitter.UserObj {
-	var Person string
-	fmt.Printf("Enter the username of the person you're searching (must be 1 word): ")
-	fmt.Scan(&Person) // THIS THING IS TAKING MULTIPLE ARGUMENTS, AND IF THE FIRST ONE DOESNT COMPILE, IT WILL TAKE THE ONE AFTER. EXAMPLE: ";L;L;LJ Zeerocious", it will error out but still use Zeerocious
-	for !regexp.MustCompile(`^[a-zA-Z]*$`).MatchString(Person) {
-
-		fmt.Printf("username entered incorrectly, try again: ")
-		fmt.Scan(&Person)
+func input(x []string, err error) []string {
+	if err != nil {
+		return x
 	}
-	fmt.Println("Searching up " + Person)
+	var d string
+
+	n, err := fmt.Scanf("%s", &d)
+	if n == 1 {
+		x = append(x, d)
+	}
+	return input(x, err)
+}
+func UserSearch(c *twitter.Client) []*twitter.UserObj {
+	fmt.Printf("Enter the username of the person you're searching (must be 1 word): ")
+	people := input([]string{}, nil)
+	fmt.Println(people)
+	fmt.Println(people)
+	for len(people) != 1 || !regexp.MustCompile(`^[a-zA-Z]*$`).MatchString(people[0]) {
+		fmt.Printf("username entered incorrectly, try again: ")
+		people = input([]string{}, nil)
+	}
+	fmt.Println(people)
+	fmt.Println("Searching up " + people[0])
 	var ctx context.Context
-	resp, err := UsernameLookup(ctx, Person, c)
+	resp, err := UsernameLookup(ctx, people[0], c)
 	if err != nil {
 		return []*twitter.UserObj{}
 	}
 
-	return resp.Raw.Users
+	return resp
 }
 func ParseFlags() (string, error) {
 	var configPath string
