@@ -20,16 +20,25 @@ const (
 )
 
 type User struct {
-	Data struct {
-		ID       string `json:"id"`
-		Name     string `json:"name"`
-		Username string `json:"username"`
-	} `json:"data"`
+	Data Data `json:"data"`
 }
 type Config struct {
 	Twitter struct {
 		Bearer string `json:"Bearer_Token"`
 	} `json:"twitter"`
+}
+type Data struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Username string `json:"username"`
+	Bio      string `json:"description"`
+}
+type Following struct {
+	Data []Data `json:"data"`
+	Meta struct {
+		Count     int    `json:"result_count"`
+		NextToken string `json:"next_token"`
+	} `json:"meta"`
 }
 
 func main() {
@@ -46,7 +55,15 @@ func main() {
 		fmt.Printf("User was not found\n\n")
 		Person = UserSearch()
 	}
-	fmt.Println(Person)
+	client := resty.New()
+	resp, err := client.R().
+		SetHeader("Authorization", "Bearer "+config.Twitter.Bearer).
+		Get(TWITTER_API_BASE + "/2/users/" + Person.Data.ID + "/following?user.fields=description")
+	var following Following
+	json.Unmarshal(resp.Body(), &following)
+	fmt.Println(following.Data[3].Bio)
+	//fmt.Println(string(resp.Body()))
+	fmt.Println(following.Meta)
 }
 func (m User) IsEmpty() bool {
 	return reflect.DeepEqual(User{}, m)
