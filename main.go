@@ -151,7 +151,9 @@ func FollowingLookup(ctx context.Context, id string, client *twitter.Client, nex
 
 	userResponse, err := client.UserFollowingLookup(context.Background(), id, opts)
 	if rateLimit, has := twitter.RateLimitFromError(err); has && rateLimit.Remaining == 0 {
+		fmt.Printf("Too many request, program continuing at: %v\n\n", rateLimit.Reset.Time())
 		time.Sleep(time.Until(rateLimit.Reset.Time()))
+		fmt.Println("Continuing... (this may take a while)")
 		userResponse, err = client.UserFollowingLookup(context.Background(), id, opts)
 		return userResponse.Raw.Users, err
 	}
@@ -191,7 +193,7 @@ func UserSearch(c *twitter.Client) []*twitter.UserObj {
 		fmt.Printf("username entered incorrectly, try again: ")
 		people = input([]string{}, nil)
 	}
-	fmt.Println("Searching up " + people[0])
+	fmt.Println("Searching up " + people[0] + "... (this may take a while)")
 	var ctx context.Context
 	resp, err := UsernameLookup(ctx, people[0], c)
 	if err != nil {
